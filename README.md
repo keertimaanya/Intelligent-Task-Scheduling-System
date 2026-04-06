@@ -15,6 +15,22 @@ Tasks carry varying **priorities**, meaning missing a high-priority task penaliz
 
 ---
 
+## Environment Design
+
+### Action Space
+
+The environment uses a discrete integer action space.
+
+Each action represents assigning a task to a machine and is encoded as:
+
+Action = task_index * num_machines + machine_index
+
+This compact encoding allows efficient representation of all possible task-machine assignments in a single discrete space.
+
+A special WAIT action is also provided, allowing the agent to skip a timestep when no beneficial assignment is available.
+
+---
+
 ##  Project Structure
 
 ```
