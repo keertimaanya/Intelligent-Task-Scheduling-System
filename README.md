@@ -4,7 +4,7 @@ A deterministic, event-driven Reinforcement Learning (RL) environment tailored a
 
 ---
 
-## 🎯 The Challenge
+##  The Challenge
 You act as a Task Scheduler in a dynamic environment (think cloud resource manager, or an automated factory). 
 The goal is to map arriving tasks to available machines before their deadlines expire. 
 Tasks carry varying **priorities**, meaning missing a high-priority task penalizes you significantly more than missing a low-priority task.
@@ -15,7 +15,7 @@ Tasks carry varying **priorities**, meaning missing a high-priority task penaliz
 
 ---
 
-## 🛠 Project Structure
+##  Project Structure
 
 ```
 ├── README.md               # You are here
@@ -43,7 +43,7 @@ Tasks carry varying **priorities**, meaning missing a high-priority task penaliz
 
 ---
 
-## 🚀 Running the Environment
+##  Running the Environment
 
 ### Method 1: Docker (Recommended)
 You can instantly spin up the isolated environment and its REST API natively.
@@ -62,7 +62,7 @@ uvicorn api.server:app --host 0.0.0.0 --port 8000
 
 ---
 
-## 🔄 Interaction via API (REST interface)
+##  Interaction via API (REST interface)
 
 Agents interface with the OpenEnv server via three primary endpoints.
 
@@ -88,7 +88,7 @@ Body: {"action": 8}
 
 ---
 
-## 🏎️ Baseline Agent (EDF)
+##  Baseline Agent (EDF)
 A simple Earliest Deadline First (EDF) agent is provided. It serves as a benchmark that strictly prioritizes urgency over importance.
 It easily conquers `EASY` and `MEDIUM` but naturally fails on `HARD` because it cannot execute strategic sacrifices on competing priorities.
 
@@ -99,7 +99,7 @@ python agents/baseline_edf.py
 
 ---
 
-## 📊 Graders
+##  Graders
 Performance is mathematically mapped mathematically between `0.0` (Worst) and `1.0` (Perfect) across 4 metrics:
 1. **WCR (Weighted Completion Rate)**: Normalizes on-time completions by priority.
 2. **PWE (Priority-Weighted Earliness)**: Judges how much safe "slack" or buffer remained when completing.
