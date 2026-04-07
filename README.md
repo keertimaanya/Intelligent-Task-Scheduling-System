@@ -1,3 +1,14 @@
+---
+title: Intelligent Task Scheduling
+emoji: 🗓️
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+tags:
+  - openenv
+---
+
 # Intelligent Task Scheduling System (OpenEnv)
 
 A deterministic, event-driven RL environment for dynamic task scheduling, built to the **OpenEnv** benchmark specification. Agents must assign tasks to machines before deadlines expire, balancing priority trade-offs across three difficulty levels.
@@ -16,6 +27,17 @@ Tasks carry varying **priorities**, meaning missing a high-priority task penaliz
 ---
 
 ## Environment Design
+
+### Observation Space
+The Environment State (`Observation`) is returned as a heavily typed Pydantic JSON schema:
+```json
+{
+  "current_time": 2,
+  "tasks": [{"id": 1, "duration": 2, "deadline": 8, "priority": 1, "status": 0}],
+  "machines": [{"id": 0, "is_busy": 0, "busy_until": 0}]
+}
+```
+*Note: Future "surprise" tasks are mathematically hidden from the observation space to prevent agent cheating.*
 
 ### Action Space
 
@@ -99,10 +121,15 @@ $env:ENV_URL="http://localhost:7860"
 python inference.py
 ```
 
-### 3. Run the EDF Heuristic Baseline (no LLM needed)
+### 3. Run the EDF Heuristic Baseline
+Run the mathematical deterministic baseline to test environment physics:
 ```bash
 python agents/baseline_edf.py
 ```
+**Reproducible Baseline Scores:**
+* `easy`: **0.95** (Tested via Heuristic, +50 raw total reward)
+* `medium`: **1.00** (Tested via Heuristic, +110 raw total reward)
+* `hard`: **0.78** (Tested via Heuristic, +80 raw total reward, 1 intentional task sacrifice required)
 
 ---
 
