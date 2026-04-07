@@ -25,10 +25,10 @@ from openai import OpenAI
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
 MODEL_NAME   = os.environ.get("MODEL_NAME", "gpt-4o-mini")
-HF_TOKEN     = os.environ.get("HF_TOKEN", "")
+HF_TOKEN     = os.environ.get("HF_TOKEN", "") or os.environ.get("OPENAI_API_KEY", "")
 
 if not HF_TOKEN:
-    print("ERROR: HF_TOKEN environment variable is not set.")
+    print("ERROR: HF_TOKEN (or OPENAI_API_KEY) environment variable is not set.")
     print("  Set it with:  $env:HF_TOKEN='your-key-here'")
     sys.exit(1)
 
@@ -72,7 +72,7 @@ def env_grade(invalid_actions: int = 0) -> dict:
 
 def run_task(task_id: str) -> dict:
     # [START] log
-    print(f"[START] task_id={task_id} model={MODEL_NAME}")
+    print(f"[START] task={task_id} env=intelligent-task-scheduling model={MODEL_NAME}")
 
     # Reset environment for this task/level
     reset_data = env_reset(task_id)
@@ -81,15 +81,16 @@ def run_task(task_id: str) -> dict:
 
     done = False
     step_num = 0
-    total_reward = 0.0
     invalid_actions = 0
+    episode_rewards = []
 
-    while not done:
-        step_num += 1
+    try:
+        while not done:
+            step_num += 1
 
-        # Build LLM prompt
-        num_machines = len(obs.get("machines", []))
-        system_prompt = f"""You are an expert AI Scheduler Agent.
+            # Build LLM prompt
+            num_machines = len(obs.get("machines", []))
+            system_prompt = f"""You are an expert AI Scheduler Agent.
 Your goal: maximize reward by assigning Tasks to Machines before deadlines.
 
 Current state:
@@ -104,50 +105,65 @@ Rules:
 
 Reply with ONLY a JSON object: {{"action": <integer>}}"""
 
+            try:
+                response = client.chat.completions.create(
+                    model=MODEL_NAME,
+                    response_format={"type": "json_object"},
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": "Choose your next action as JSON."}
+                    ],
+                    temperature=0.0,
+                )
+                content = response.choices[0].message.content
+                action_data = json.loads(content)
+                action = int(action_data.get("action", wait_action))
+            except Exception as e:
+                action = wait_action
+
+            # Execute step
+            step_result = env_step(action)
+            obs = step_result["observation"]
+            reward = float(step_result["reward"])
+            done = step_result["done"]
+            info = step_result["info"]
+            
+            episode_rewards.append(reward)
+
+            if "error" in info:
+                invalid_actions += 1
+                err_msg = f'"{info["error"]}"'
+            else:
+                err_msg = "null"
+
+            done_str = "true" if done else "false"
+            action_type = "WAIT" if action == wait_action else f"ASSIGN({action})"
+            
+            # [STEP] log
+            print(f"[STEP] step={step_num} action={action_type} reward={reward:.2f} done={done_str} error={err_msg}")
+
+            # Safety: prevent infinite loops
+            if step_num > 100:
+                print(f"[STEP] step={step_num+1} action=FORCE_END reward=0.00 done=true error=\"Max steps exceeded\"")
+                break
+
+            time.sleep(0.05)
+
+    finally:
+        # Grade (must be done after loop ends)
+        # Handle case where server errors prevented grading
         try:
-            response = client.chat.completions.create(
-                model=MODEL_NAME,
-                response_format={"type": "json_object"},
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": "Choose your next action as JSON."}
-                ],
-                temperature=0.0,
-            )
-            content = response.choices[0].message.content
-            action_data = json.loads(content)
-            action = int(action_data.get("action", wait_action))
-        except Exception as e:
-            action = wait_action
-
-        # Execute step
-        step_result = env_step(action)
-        obs = step_result["observation"]
-        reward = step_result["reward"]
-        done = step_result["done"]
-        info = step_result["info"]
-        total_reward += reward
-
-        if "error" in info:
-            invalid_actions += 1
-
-        # [STEP] log
-        action_type = "WAIT" if action == wait_action else f"ASSIGN({action})"
-        print(f"[STEP] task_id={task_id} step={step_num} action={action_type} reward={reward} total_reward={total_reward} done={done}")
-
-        # Safety: prevent infinite loops
-        if step_num > 100:
-            print(f"[STEP] task_id={task_id} step={step_num} action=FORCE_END reward=0 total_reward={total_reward} done=True")
-            break
-
-        time.sleep(0.05)
-
-    # Grade
-    grade_result = env_grade(invalid_actions)
-    score = grade_result["score"]
-
-    # [END] log
-    print(f"[END] task_id={task_id} score={score} total_reward={total_reward} steps={step_num}")
+             grade_result = env_grade(invalid_actions)
+             score = float(grade_result["score"])
+        except Exception:
+             grade_result = {"score": 0.0, "details": {}}
+             score = 0.0
+             
+        success_str = "true" if score > 0.0 else "false"
+        rewards_str = ",".join(f"{r:.2f}" for r in episode_rewards)
+        
+        # [END] log
+        print(f"[END] success={success_str} steps={step_num} score={score:.2f} rewards={rewards_str}")
 
     return grade_result
 
