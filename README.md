@@ -51,8 +51,7 @@ A special WAIT action is also provided, allowing the agent to skip a timestep wh
 │   └── __init__.py
 │
 ├── agents/
-│   ├── baseline_edf.py     # Earliest Deadline First heuristic agent
-│   └── baseline_llm.py     # LLM agent (legacy, see inference.py)
+│   └── baseline_edf.py     # Earliest Deadline First heuristic agent
 │
 ├── graders/
 │   └── grader.py           # Scoring: WCR, PWE, ER, AA -> 0.0-1.0
@@ -132,14 +131,14 @@ python agents/baseline_edf.py
 
 ## Inference Output Format
 
-The `inference.py` script emits structured stdout logs:
+The `inference.py` script emits strictly formatted logs matching the OpenEnv STDOUT constraints:
 
 ```
-[START] task_id=easy model=gpt-4o-mini
-[STEP] task_id=easy step=1 action=ASSIGN(0) reward=0.0 total_reward=0.0 done=False
-[STEP] task_id=easy step=2 action=WAIT reward=10.0 total_reward=10.0 done=False
+[START] task=easy env=intelligent-task-scheduling model=gpt-4o-mini
+[STEP] step=1 action=ASSIGN(0) reward=0.00 done=false error=null
+[STEP] step=2 action=WAIT reward=10.00 done=false error=null
 ...
-[END] task_id=easy score=0.95 total_reward=50.0 steps=6
+[END] success=true steps=6 score=0.95 rewards=0.00,10.00,10.00,30.00
 ```
 
 ---
