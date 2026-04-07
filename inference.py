@@ -72,7 +72,7 @@ def env_grade(invalid_actions: int = 0) -> dict:
 
 def run_task(task_id: str) -> dict:
     # [START] log
-    print(f"[START] task={task_id} env=intelligent-task-scheduling model={MODEL_NAME}")
+    print(f"[START] task={task_id} env=intelligent-task-scheduling model={MODEL_NAME}", flush=True)
 
     # Reset environment for this task/level
     reset_data = env_reset(task_id)
@@ -140,11 +140,11 @@ Reply with ONLY a JSON object: {{"action": <integer>}}"""
             action_type = "WAIT" if action == wait_action else f"ASSIGN({action})"
             
             # [STEP] log
-            print(f"[STEP] step={step_num} action={action_type} reward={reward:.2f} done={done_str} error={err_msg}")
+            print(f"[STEP] step={step_num} action={action_type} reward={reward:.2f} done={done_str} error={err_msg}", flush=True)
 
             # Safety: prevent infinite loops
             if step_num > 100:
-                print(f"[STEP] step={step_num+1} action=FORCE_END reward=0.00 done=true error=\"Max steps exceeded\"")
+                print(f"[STEP] step={step_num+1} action=FORCE_END reward=0.00 done=true error=\"Max steps exceeded\"", flush=True)
                 break
 
             time.sleep(0.05)
@@ -163,7 +163,7 @@ Reply with ONLY a JSON object: {{"action": <integer>}}"""
         rewards_str = ",".join(f"{r:.2f}" for r in episode_rewards)
         
         # [END] log
-        print(f"[END] success={success_str} steps={step_num} score={score:.2f} rewards={rewards_str}")
+        print(f"[END] success={success_str} steps={step_num} score={score:.3f} rewards={rewards_str}", flush=True)
 
     return grade_result
 
