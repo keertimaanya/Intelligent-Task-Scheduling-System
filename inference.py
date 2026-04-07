@@ -83,6 +83,7 @@ def run_task(task_id: str) -> dict:
     step_num = 0
     invalid_actions = 0
     episode_rewards = []
+    last_error = None
 
     try:
         while not done:
@@ -102,8 +103,12 @@ Rules:
 - Task IDs start at 1, indices start at 0. Task 1 = index 0, Task 2 = index 1, etc.
 - Only assign PENDING tasks (status=0) to IDLE machines (is_busy=0).
 - Match required_machine_type to machine_type.
+- HINT: If you get a machine type error, try adding +1 to your action to select the other machine!
 
-Reply with ONLY a JSON object: {{"action": <integer>}}"""
+Reply with ONLY a JSON object: {{"reasoning": "<step-by-step math and logic>", "action": <integer>}}"""
+
+            if last_error:
+                system_prompt += f"\n\nCRITICAL WARNING: Your previous action failed. ERROR: {last_error}\nYou MUST output a DIFFERENT valid action this turn to avoid an infinite loop."
 
             try:
                 response = client.chat.completions.create(
@@ -119,6 +124,7 @@ Reply with ONLY a JSON object: {{"action": <integer>}}"""
                 action_data = json.loads(content)
                 action = int(action_data.get("action", wait_action))
             except Exception as e:
+                print(f"API ERROR: {e}") # Print out the actual error!
                 action = wait_action
 
             # Execute step
@@ -133,8 +139,10 @@ Reply with ONLY a JSON object: {{"action": <integer>}}"""
             if "error" in info:
                 invalid_actions += 1
                 err_msg = f'"{info["error"]}"'
+                last_error = info["error"]
             else:
                 err_msg = "null"
+                last_error = None
 
             done_str = "true" if done else "false"
             action_type = "WAIT" if action == wait_action else f"ASSIGN({action})"
