@@ -1,6 +1,6 @@
 # Intelligent Task Scheduling System (OpenEnv)
 
-A deterministic, event-driven Reinforcement Learning (RL) environment tailored as a competitive benchmark for dynamic task scheduling. Built under the OpenEnv benchmark structure, it challenges agents to manage task queues, machine capabilities, and deadlines across three distinct difficulty levels.
+A deterministic, event-driven RL environment for dynamic task scheduling, built to the **OpenEnv** benchmark specification. Agents must assign tasks to machines before deadlines expire, balancing priority trade-offs across three difficulty levels.
 
 ---
 
@@ -31,95 +31,134 @@ A special WAIT action is also provided, allowing the agent to skip a timestep wh
 
 ---
 
-##  Project Structure
-
+## Project Structure
 ```
-├── README.md               # You are here
-├── requirements.txt        # Core requirements (FastAPI, pydantic)
-├── Dockerfile              # Dockerized environment
-├── docker-compose.yml      
+.
+├── openenv.yaml            # OpenEnv specification file
+├── inference.py            # LLM baseline inference script (root, required)
+├── Dockerfile              # HF Spaces compatible (port 7860)
+├── docker-compose.yml
+├── requirements.txt
+├── README.md
 │
-├── api/                    
-│   └── server.py           # REST API exposing the Environment
+├── api/
+│   └── server.py           # FastAPI server (reset, step, state, grade, tasks)
 │
-├── env/                    
-│   ├── scheduler_env.py    # Core RL Environment logic (reset, step, state)
-│   ├── models.py           # Core schemas (Task, Machine definitions)
-│   ├── scenarios.py        # Maps the EASY, MEDIUM, HARD configurations
-│   └── __init__.py         
+├── env/
+│   ├── scheduler_env.py    # Core RL environment (reset, step, state)
+│   ├── models.py           # Task & Machine data classes
+│   ├── scenarios.py        # Easy / Medium / Hard task generators
+│   └── __init__.py
 │
-├── agents/                 
-│   └── baseline_edf.py     # Greedy Earliest Deadline First (EDF) agent
+├── agents/
+│   ├── baseline_edf.py     # Earliest Deadline First heuristic agent
+│   └── baseline_llm.py     # LLM agent (legacy, see inference.py)
 │
-├── graders/                
-│   └── grader.py           # Mathematical normalized evaluating logic (0.0 - 1.0)
+├── graders/
+│   └── grader.py           # Scoring: WCR, PWE, ER, AA -> 0.0-1.0
 │
-└── tests/                  # End-to-end tests for the API and Environment
+└── tests/
+    └── ...
 ```
 
 ---
 
-##  Running the Environment
+## Quick Start
 
-### Method 1: Docker (Recommended)
-You can instantly spin up the isolated environment and its REST API natively.
+### 1. Run the Environment Server
+
+**Docker (recommended):**
 ```bash
 docker-compose up --build
 ```
-*The FastAPI server will be available at `http://localhost:8000`.*
 
-### Method 2: Local Python
-Install the minimal dependencies and run `uvicorn`.
+**Local:**
 ```bash
 pip install -r requirements.txt
-uvicorn api.server:app --host 0.0.0.0 --port 8000
+uvicorn api.server:app --host 0.0.0.0 --port 7860
 ```
-*API documentation is auto-generated at `http://localhost:8000/docs`.*
 
----
+The server runs at `http://localhost:7860`. API docs at `http://localhost:7860/docs`.
 
-##  Interaction via API (REST interface)
+### 2. Run the Baseline Inference
 
-Agents interface with the OpenEnv server via three primary endpoints.
+Set the required environment variables and run:
 
-#### 1. Start an Episode
 ```bash
-POST /reset
-Body: {"level": "hard"}
+# Linux / Mac
+export API_BASE_URL="https://api.openai.com/v1"
+export MODEL_NAME="gpt-4o-mini"
+export HF_TOKEN="sk-your-openai-key"
+export ENV_URL="http://localhost:7860"
+python inference.py
+
+# Windows PowerShell
+$env:API_BASE_URL="https://api.openai.com/v1"
+$env:MODEL_NAME="gpt-4o-mini"
+$env:HF_TOKEN="sk-your-openai-key"
+$env:ENV_URL="http://localhost:7860"
+python inference.py
 ```
-*Returns the initial State observation where `current_time` is zero.*
 
-#### 2. Get Current State observation
-```bash
-GET /state
-```
-*Returns the observation exactly as is without modifying or ticking the clock.*
-
-#### 3. Step the Environment
-```bash
-POST /step
-Body: {"action": 8} 
-```
-*Actions are integer encoded (`task_ID * num_machines + machine_ID`). The highest integer corresponds to the `WAIT` action. It returns `observation`, `reward` (float), `done` (bool), and `info` dict.*
-
----
-
-##  Baseline Agent (EDF)
-A simple Earliest Deadline First (EDF) agent is provided. It serves as a benchmark that strictly prioritizes urgency over importance.
-It easily conquers `EASY` and `MEDIUM` but naturally fails on `HARD` because it cannot execute strategic sacrifices on competing priorities.
-
-**To run the baseline:**
+### 3. Run the EDF Heuristic Baseline (no LLM needed)
 ```bash
 python agents/baseline_edf.py
 ```
 
 ---
 
-##  Graders
-Performance is mathematically mapped mathematically between `0.0` (Worst) and `1.0` (Perfect) across 4 metrics:
-1. **WCR (Weighted Completion Rate)**: Normalizes on-time completions by priority.
-2. **PWE (Priority-Weighted Earliness)**: Judges how much safe "slack" or buffer remained when completing.
-3. **ER (Efficiency Ratio)**: Tracks total accumulated reward vs the mathematically possible optimal maximum per-level.
-4. **AA (Action Accuracy)**: Checks decision validity count (protects against brute-forcing invalid steps).
+## API Endpoints
 
-The script is available in `graders/grader.py`. It is invoked statically at the end of the episode passing the terminal environment trajectory.
+| Method | Path     | Description                                |
+|--------|----------|--------------------------------------------|
+| GET    | `/`      | Health check (returns 200)                 |
+| POST   | `/reset` | Start a new episode `{"level": "easy"}`    |
+| POST   | `/step`  | Take an action `{"action": 0}`             |
+| GET    | `/state` | Get current observation                    |
+| GET    | `/tasks` | List all 3 task definitions                |
+| POST   | `/grade` | Grade a completed episode (returns 0.0-1.0)|
+
+---
+
+## Environment Variables (Mandatory for Submission)
+
+| Variable       | Description                          |
+|----------------|--------------------------------------|
+| `API_BASE_URL` | The API endpoint for the LLM         |
+| `MODEL_NAME`   | The model identifier for inference   |
+| `HF_TOKEN`     | Your Hugging Face / API key          |
+
+---
+
+## Inference Output Format
+
+The `inference.py` script emits structured stdout logs:
+
+```
+[START] task_id=easy model=gpt-4o-mini
+[STEP] task_id=easy step=1 action=ASSIGN(0) reward=0.0 total_reward=0.0 done=False
+[STEP] task_id=easy step=2 action=WAIT reward=10.0 total_reward=10.0 done=False
+...
+[END] task_id=easy score=0.95 total_reward=50.0 steps=6
+```
+
+---
+
+## Grading
+
+Each task is scored between **0.0** and **1.0** using four weighted metrics:
+
+- **WCR** — Weighted Completion Rate (did you complete high-priority tasks?)
+- **PWE** — Priority-Weighted Earliness (how much deadline buffer remained?)
+- **ER**  — Efficiency Ratio (actual reward vs theoretical maximum)
+- **AA**  — Action Accuracy (ratio of valid actions)
+
+---
+
+## Tasks
+
+| ID     | Tasks | Machines | Key Challenge                        |
+|--------|-------|----------|--------------------------------------|
+| easy   | 3     | 2        | Simple scheduling, generous deadlines|
+| medium | 5     | 2        | Type matching, mixed priorities      |
+| hard   | 7     | 3        | Dynamic arrivals, forced trade-offs  |

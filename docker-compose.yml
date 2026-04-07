@@ -4,6 +4,6 @@ services:
   scheduling-env:
     build: .
     ports:
-      - "8000:8000"
+      - "7860:7860"
     environment:
-      - PORT=8000
+      - PORT=7860

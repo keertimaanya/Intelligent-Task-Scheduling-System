@@ -1,0 +1,70 @@
+name: intelligent-task-scheduling
+version: "1.0.0"
+description: >
+  A deterministic, event-driven RL environment for dynamic task scheduling.
+  Agents must assign tasks to machines before deadlines expire, balancing
+  priority trade-offs across three difficulty levels.
+
+environment:
+  type: fastapi
+  entrypoint: api.server:app
+  port: 7860
+
+endpoints:
+  reset:
+    method: POST
+    path: /reset
+    request_model:
+      level:
+        type: string
+        enum: [easy, medium, hard]
+        default: easy
+    response_model:
+      observation: object
+      wait_action: integer
+
+  step:
+    method: POST
+    path: /step
+    request_model:
+      action:
+        type: integer
+        description: "Action ID: 0..(N*M-1) for assignments, N*M for WAIT"
+    response_model:
+      observation: object
+      reward: float
+      done: boolean
+      info: object
+
+  state:
+    method: GET
+    path: /state
+    response_model:
+      observation: object
+
+tasks:
+  - id: easy
+    name: Easy Scheduling
+    description: "3 tasks, 2 machines, generous deadlines, no type constraints."
+    grader: graders.grader.Grader
+    max_reward: 50.0
+
+  - id: medium
+    name: Medium Scheduling
+    description: "5 tasks, 2 machines, mixed priorities, type matching required."
+    grader: graders.grader.Grader
+    max_reward: 110.0
+
+  - id: hard
+    name: Hard Scheduling
+    description: "7 tasks, 3 machines, dynamic arrivals, forced priority conflicts."
+    grader: graders.grader.Grader
+    max_reward: 120.0
+
+inference:
+  script: inference.py
+  timeout_minutes: 20
+  env_vars:
+    - API_BASE_URL
+    - MODEL_NAME
+    - HF_TOKEN
