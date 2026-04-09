@@ -1,24 +1,24 @@
 FROM python:3.10-slim
 
-# Creates a non-root user with an explicit UID and adds permission to access the /app folder
+# System dependencies (optional, but good for science/AI projects)
+RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user and set permissions
 RUN useradd -m -u 1000 user
+WORKDIR /app
+COPY --chown=user:root . /app
+
+# Switch to the new user
 USER user
 ENV PATH="/home/user/.local/bin:$PATH"
 
-WORKDIR /app
-
-# Copy and install dependencies
-COPY --chown=user ./requirements.txt requirements.txt
+# Install Python dependencies
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code
-COPY --chown=user . /app
-
-# HF Spaces uses port 7860
+# Expose the port for HF Spaces
 EXPOSE 7860
-
-# Set default port for HF Spaces compatibility
 ENV PORT=7860
 
-# Run API server on the correct port
+# Run the FastAPI server
 CMD ["uvicorn", "api.server:app", "--host", "0.0.0.0", "--port", "7860"]
