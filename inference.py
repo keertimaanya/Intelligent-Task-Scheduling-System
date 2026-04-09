@@ -23,23 +23,33 @@ from openai import OpenAI
 #  Configuration from environment variables
 # ─────────────────────────────────────────────
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME   = os.environ.get("MODEL_NAME", "gpt-4o-mini")
-HF_TOKEN     = os.environ.get("HF_TOKEN", "") or os.environ.get("OPENAI_API_KEY", "")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME   = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+HF_TOKEN     = os.getenv("HF_TOKEN", "") or os.getenv("OPENAI_API_KEY", "")
 
 if not HF_TOKEN:
     print("ERROR: HF_TOKEN (or OPENAI_API_KEY) environment variable is not set.")
     print("  Set it with:  $env:HF_TOKEN='your-key-here'")
     sys.exit(1)
 
-# Initialize OpenAI-compatible client using the mandatory env vars
+# Initialize OpenAI-compatible client
+# Uses API_BASE_URL (LLM service endpoint) and HF_TOKEN (authentication key)
 client = OpenAI(
     api_key=HF_TOKEN,
     base_url=API_BASE_URL,
 )
 
 # Environment server URL (the FastAPI server must be running)
-ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
+# Set ENV_URL to the base URL of your environment server.
+# - For local testing: ENV_URL="http://localhost:7860"
+# - For Hugging Face Spaces: ENV_URL="https://your-space.hf.space"
+# This allows the script to interact with either a local or remote environment.
+ENV_URL = os.getenv("ENV_URL", "http://localhost:7860")
+
+# Optional configuration parameters (can be overridden via environment variables)
+MAX_STEPS = int(os.getenv("MAX_STEPS", "100"))
+TEMPERATURE = float(os.getenv("TEMPERATURE", "0.0"))
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", "500"))
 
 # ─────────────────────────────────────────────
 #  Helper: call environment endpoints
@@ -118,7 +128,7 @@ Reply with ONLY a JSON object: {{"reasoning": "<step-by-step math and logic>", "
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": "Choose your next action as JSON."}
                     ],
-                    temperature=0.0,
+                    temperature=TEMPERATURE,
                 )
                 content = response.choices[0].message.content
                 action_data = json.loads(content)
