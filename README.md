@@ -58,7 +58,7 @@ A special WAIT action is also provided, allowing the agent to skip a timestep wh
 .
 ├── openenv.yaml            # OpenEnv specification file
 ├── inference.py            # LLM baseline inference script (root, required)
-├── Dockerfile              # HF Spaces compatible (port 7860)
+├── Dockerfile              # HF Spaces compatible (non-root user, port 7860)
 ├── docker-compose.yml
 ├── requirements.txt
 ├── README.md
@@ -88,10 +88,39 @@ A special WAIT action is also provided, allowing the agent to skip a timestep wh
 
 ### 1. Run the Environment Server
 
+
 **Docker (recommended):**
 ```bash
 docker-compose up --build
 ```
+
+Or build and run manually:
+```bash
+docker build -t intelligent-task-scheduling .
+docker run -p 7860:7860 intelligent-task-scheduling
+```
+
+**Note:**
+- The Dockerfile uses a non-root user for Hugging Face Spaces compatibility.
+- The container exposes port 7860 and sets `ENV PORT=7860`.
+- The default command runs: `uvicorn api.server:app --host 0.0.0.0 --port 7860`
+---
+
+## Submission Validation
+
+Before submitting, validate your repo with the official OpenEnv script:
+
+```bash
+# Download and run the validator (replace <ping_url> with your HF Space URL)
+curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/scripts/validate-submission.sh | bash -s -- <ping_url> [repo_dir]
+```
+
+This checks:
+- Your HF Space is live and responds to `/reset`
+- Docker image builds successfully
+- `openenv validate` passes with your `openenv.yaml`
+
+See the script for details and troubleshooting hints.
 
 **Local:**
 ```bash
@@ -99,7 +128,23 @@ pip install -r requirements.txt
 uvicorn api.server:app --host 0.0.0.0 --port 7860
 ```
 
+
 The server runs at `http://localhost:7860`. API docs at `http://localhost:7860/docs`.
+
+#### Environment URL (ENV_URL)
+
+Set the `ENV_URL` environment variable to tell the inference script where to find your environment server:
+
+- For local testing:
+  ```powershell
+  $env:ENV_URL="http://localhost:7860"
+  ```
+- For Hugging Face Spaces:
+  ```powershell
+  $env:ENV_URL="https://your-space.hf.space"
+  ```
+
+This allows the inference script to interact with either a local or remote environment without code changes.
 
 ### 2. Run the Baseline Inference
 
